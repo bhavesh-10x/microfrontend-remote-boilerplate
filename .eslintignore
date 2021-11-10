@@ -1,0 +1,7 @@
+.vscode
+build
+node_modules
+webpack.*
+postcss.config.js
+serviceWorker.js
+*.md
