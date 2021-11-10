@@ -7,12 +7,6 @@ const ModuleFederationPlugin = require('webpack/lib/container/ModuleFederationPl
 const CopyPlugin = require('copy-webpack-plugin');
 const dotenv = require('dotenv');
 const dotenvExpand = require('dotenv-expand');
-const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
-const TerserPlugin = require('terser-webpack-plugin');
-const CompressionPlugin = require('compression-webpack-plugin');
-const { GenerateSW } = require('workbox-webpack-plugin');
-const CssMinimizerPlugin = require('css-minimizer-webpack-plugin');
-const safePostCssParser = require('postcss-safe-parser');
 const commonConfig = require('./webpack.common');
 const deps = require('./package.json').dependencies;
 
@@ -66,25 +60,7 @@ const env_stringified = {
     }, {})
 };
 
-const getAdditionalOptimisationFlags = () => {
-  if (isDebugMode()) {
-    return {
-      nodeEnv: 'development',
-      flagIncludedChunks: false,
-      concatenateModules: false,
-      emitOnErrors: true,
-      checkWasmTypes: false,
-      removeAvailableModules: false
-    };
-  }
-  return {
-    nodeEnv: 'production',
-    flagIncludedChunks: true,
-    concatenateModules: true,
-    emitOnErrors: false,
-    checkWasmTypes: true
-  };
-};
+env_stringified['process.env'].PUBLIC_URL = JSON.stringify(getPublicURL());
 
 const config = {
   mode: 'development',
@@ -155,145 +131,16 @@ const config = {
         }
       ]
     }),
-    // #DEFINE_AND_ENV_PLUGIN: Make process.env variables accessible within react files
-    new webpack.DefinePlugin(env_stringified),
-    new webpack.EnvironmentPlugin({
-      PUBLIC_URL: getPublicURL()
-    })
-  ],
-  optimization: {
-    ...getAdditionalOptimisationFlags(),
-    minimize: !isDebugMode(),
-    minimizer: [
-      // This is only used in production mode
-      new TerserPlugin({
-        terserOptions: {
-          parse: {
-            ecma: 8
-          },
-          compress: {
-            ecma: 5,
-            warnings: false,
-            comparisons: false,
-            inline: 2,
-            drop_console:
-              process.env && process.env.isProdEnvironment ? true : false
-          },
-          mangle: {
-            safari10: true
-          },
-          // Added for profiling in devtools
-          keep_classnames: true,
-          keep_fnames: false,
-          output: {
-            ecma: 5,
-            comments: false,
-            // Turned on because emoji and regex is not minified properly using default
-            // https://github.com/facebook/create-react-app/issues/2488
-            ascii_only: true
-          }
-        },
-        exclude: /assets\/images/
-      }),
-      // This is only used in production mode
-      new CssMinimizerPlugin({
-        parallel: false,
-        minimizerOptions: {
-          processorOptions: {
-            parser: safePostCssParser,
-            map: isDebugMode()
-              ? {
-                  // `inline: false` forces the sourcemap to be output into a
-                  // separate file
-                  inline: false,
-                  // `annotation: true` appends the sourceMappingURL to the end of
-                  // the css file, helping the browser find the sourcemap
-                  annotation: true
-                }
-              : false
-          },
-          preset: ['default', { minifyFontValues: { removeQuotes: false } }]
-        }
-      })
-    ]
-  }
+    // #DEFINE_PLUGIN: Make process.env variables accessible within the app
+    new webpack.DefinePlugin(env_stringified)
+  ]
 };
 
 module.exports = (env, argv) => {
   config.devtool = 'source-map';
   if (isDebugMode()) {
     config.cache = true;
-    if (argv.analyzer && process.env.ANALYZER !== 'false') {
-      config.plugins = [
-        ...config.plugins,
-        new BundleAnalyzerPlugin({
-          openAnalyzer: false,
-          analyzerMode: 'server',
-          analyzerHost: 'localhost',
-          defaultSizes: 'gzip',
-          // #BUNDLE_ANALYZER_PORT: Change bundle analyzer port
-          analyzerPort: 8081
-        }),
-        new UnusedWebpackPlugin({
-          failOnUnused: false,
-          // Source directories
-          directories: [path.join(__dirname, 'src')],
-          // Exclude patterns
-          exclude: ['*.test.js'],
-          // Root directory (optional)
-          root: __dirname
-        })
-      ];
-    }
-    if (argv.hot) {
-      // Cannot use 'contenthash' when hot reloading is enabled.
-      config.output.filename = '[name].[fullhash].js';
-    }
     config.devtool = 'eval-source-map';
-  }
-  if (
-    process.env.NODE_ENV === 'production' &&
-    !argv.analyzer &&
-    argv.compress &&
-    (!process.env.COMPRESS_JS || process.env.COMPRESS_JS === 'true')
-  ) {
-    config.plugins = [
-      ...config.plugins,
-      new CompressionPlugin({
-        test: /\.js(\?.*)?$/i,
-        algorithm: 'gzip',
-        compressionOptions: { level: 6 },
-        filename: '[path].gz[query]',
-        exclude: /assets\/images/
-      })
-    ];
-  }
-  if (process.env.NODE_ENV === 'production') {
-    config.plugins = [
-      ...config.plugins,
-      new GenerateSW({
-        clientsClaim: true,
-        exclude: [
-          /\.map$/,
-          /asset-manifest\.json$/,
-          /service-worker\.js$/,
-          /assets\/images\/blank\.png$/,
-          /search\.worker\.js/,
-          /index\.html/
-        ],
-        // importScripts: ['cdn'],
-        // navigateFallback: '/' + 'index.html',
-        navigateFallbackAllowlist: [
-          // Exclude URLs starting with /_, as they're likely an API call
-          new RegExp('^/_'),
-          // Exclude any URLs whose last part seems to be a file extension
-          // as they're likely a resource and not a SPA route.
-          // URLs containing a "?" character won't be blacklisted as they're likely
-          // a route with query params (e.g. auth callbacks).
-          new RegExp('/[^/?]+\\.[^/]+$')
-        ]
-      })
-    ];
   }
   return merge(commonConfig, config);
 };

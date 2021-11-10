@@ -25,6 +25,7 @@ const mount = (
   );
 };
 
+//  #MOUNT_POINT: Replace the mount point with the div where the app will be mounted
 const devRoot = document.querySelector('#remoteApp-root'); // This element is in /public/index.html
 
 if (devRoot) {

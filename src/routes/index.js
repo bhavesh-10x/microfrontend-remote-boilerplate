@@ -8,7 +8,7 @@ const Page1 = lazy(() => import('../containers/Page1'));
 const Home = lazy(() => import('../containers/Home'));
 
 const FeedbackRoutes = memo(({ history, moduleRootPath = '' }) => {
-  // Append the moduleRootPath if feedback module is loaded from container
+  // #MOD_ROOT_PATH Append the moduleRootPath if feedback module is loaded from container
   const createRoutePath = (path = '') => `${moduleRootPath}${path}`;
 
   return (
